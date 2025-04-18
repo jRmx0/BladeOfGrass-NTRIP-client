@@ -18,6 +18,7 @@
 #define BIT_CONNECTED                   BIT0
 #define BIT_DISCONNECTED                BIT1
 static EventGroupHandle_t wifi_events   = NULL;
+EventGroupHandle_t wifi_status          = NULL;
 
 // Reconnection
 static int reconnection_count           = 0;
@@ -85,6 +86,8 @@ static void event_handler(void *arg, esp_event_base_t event_base, int32_t event_
 // Public Functions
 void wifi_connect_init(void)
 {
+    wifi_status = xEventGroupCreate();
+    
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
@@ -105,7 +108,6 @@ esp_err_t wifi_connect_sta(char *ssid, char *pass, int timeout)
     attempt_reconnect = true;
     
     wifi_events = xEventGroupCreate();
-    wifi_status = xEventGroupCreate();
     reconnectSemaphore = xSemaphoreCreateBinary();
     xTaskCreate(&wifi_attempt_reconnect, "wifi_attempt_reconnect", 4096, NULL, 5, NULL);
 

@@ -2,6 +2,7 @@
 #include "config_board.h"
 
 #include "wifi_connect.h"
+#include "wifi_monitor.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -53,6 +54,8 @@ void app_main(void)
     ESP_ERROR_CHECK(ret);
 
     wifi_connect_init();
+    wifi_monitor_init();
+
     ESP_ERROR_CHECK(wifi_connect_sta(WIFI_SSID, WIFI_PASS, portMAX_DELAY));
 
     // // Configure UART parameters

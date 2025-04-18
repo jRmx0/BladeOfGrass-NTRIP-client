@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "wifi_connect.h": "c",
-        "freertos.h": "c"
+        "freertos.h": "c",
+        "event_groups.h": "c",
+        "task.h": "c"
     }
 }
