@@ -1,5 +1,6 @@
 // TODO
 // - No WiFi available (go to energy saving mode)
+#include "wifi_connect.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -18,16 +19,8 @@
 #define BIT_DISCONNECTED                BIT1
 static EventGroupHandle_t wifi_events   = NULL;
 
-// WiFi Status for outside
-#define WIFI_STATUS_CONNECTING          BIT0
-#define WIFI_STATUS_CONNECTED           BIT1
-#define WIFI_STATUS_DISCONNECTED        BIT2
-#define WIFI_STATUS_RECONNECTING        BIT3
-EventGroupHandle_t wifi_status          = NULL;
-
-static int reconnection_count           = 0;
-
 // Reconnection
+static int reconnection_count           = 0;
 #define RECONNECT_DELAY_MS              5000
 SemaphoreHandle_t reconnectSemaphore;
 
@@ -47,6 +40,7 @@ static void event_handler(void *arg, esp_event_base_t event_base, int32_t event_
     {
         case WIFI_EVENT_STA_START:
         {
+            xEventGroupSetBits(wifi_status, WIFI_STATUS_CONNECTING);
             ESP_LOGI(WIFI_TAG, "WIFI_EVENT_STA_START");
             esp_wifi_connect();
             break;
@@ -68,6 +62,7 @@ static void event_handler(void *arg, esp_event_base_t event_base, int32_t event_
 
             if (attempt_reconnect)
             {
+                xEventGroupSetBits(wifi_status, WIFI_STATUS_RECONNECTING);
                 ESP_LOGI(WIFI_TAG, "Attempting to reconnect... (%d)", ++reconnection_count);
                 xSemaphoreGive(reconnectSemaphore);
             }
@@ -78,6 +73,7 @@ static void event_handler(void *arg, esp_event_base_t event_base, int32_t event_
         {
             ESP_LOGI(WIFI_TAG, "IP_EVENT_STA_GOT_IP");
             xEventGroupSetBits(wifi_events, BIT_CONNECTED);
+            xEventGroupSetBits(wifi_status, WIFI_STATUS_CONNECTED);
             break;
         }    
             
@@ -176,6 +172,8 @@ void wifi_disconnect(void)
         esp_netif_destroy(esp_netif);
         esp_netif = NULL;
     }
+
+    xEventGroupSetBits(wifi_status, WIFI_STATUS_DISCONNECTED);
 }
 
 // Private Functions
