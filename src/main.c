@@ -53,26 +53,26 @@ void app_main(void)
     ESP_ERROR_CHECK(ret);
 
     wifi_connect_init();
-    ESP_ERROR_CHECK(wifi_connect_sta(WIFI_SSID, WIFI_PASS, 60000));
+    ESP_ERROR_CHECK(wifi_connect_sta(WIFI_SSID, WIFI_PASS, portMAX_DELAY));
 
-    // Configure UART parameters
-    uart_config_t uart_config = {
-        .baud_rate = UART_BAUD_RATE,
-        .data_bits = UART_DATA_8_BITS,
-        .parity = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-        .source_clk = UART_SCLK_DEFAULT,
-    };
+    // // Configure UART parameters
+    // uart_config_t uart_config = {
+    //     .baud_rate = UART_BAUD_RATE,
+    //     .data_bits = UART_DATA_8_BITS,
+    //     .parity = UART_PARITY_DISABLE,
+    //     .stop_bits = UART_STOP_BITS_1,
+    //     .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+    //     .source_clk = UART_SCLK_DEFAULT,
+    // };
 
-    // Install UART driver and set UART pins
-    ESP_ERROR_CHECK(uart_driver_install(UART_NUM, BUF_SIZE * 2, BUF_SIZE * 2, 20, &uart_queue, 0));
-    ESP_ERROR_CHECK(uart_param_config(UART_NUM, &uart_config));
-    ESP_ERROR_CHECK(uart_set_pin(UART_NUM, UART_TX_PIN, UART_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
+    // // Install UART driver and set UART pins
+    // ESP_ERROR_CHECK(uart_driver_install(UART_NUM, BUF_SIZE * 2, BUF_SIZE * 2, 20, &uart_queue, 0));
+    // ESP_ERROR_CHECK(uart_param_config(UART_NUM, &uart_config));
+    // ESP_ERROR_CHECK(uart_set_pin(UART_NUM, UART_TX_PIN, UART_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 
-    // Create tasks for UART event processing and NTRIP client
-    xTaskCreate(uart_event_task, "uart_event_task", 4096, NULL, 12, NULL);
-    xTaskCreate(ntrip_client_task, "ntrip_client_task", 8192, NULL, 5, NULL);
+    // // Create tasks for UART event processing and NTRIP client
+    // xTaskCreate(uart_event_task, "uart_event_task", 4096, NULL, 12, NULL);
+    // xTaskCreate(ntrip_client_task, "ntrip_client_task", 8192, NULL, 5, NULL);
 }
 
 // Task to handle UART events (UM980 communication)

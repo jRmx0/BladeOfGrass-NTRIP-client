@@ -1,8 +1,5 @@
 // TODO
-// - Handle unsuccessful reconnection atempt (function to try reconect every so and then)
-// - Handle timeot
-// - Handle bad wifi credentials
-// - Refactor reconnetion atempt
+// - No WiFi available (go to energy saving mode)
 
 #include <stdio.h>
 #include <string.h>
@@ -14,25 +11,36 @@
 #include "freertos/task.h"
 #include <netdb.h>
 
-// --- Private Definitions ---
-#define WIFI_TAG                "WIFI CONNECT"
-#define MAX_DISCONNECTION_RETRY 5
-#define RECONNECT_DELAY_MS      5000
+#define WIFI_TAG                        "WIFI CONNECT"
 
-#define BIT_CONNECTED           BIT0
-#define BIT_DISCONNECTED        BIT1
+// Connection status
+#define BIT_CONNECTED                   BIT0
+#define BIT_DISCONNECTED                BIT1
+static EventGroupHandle_t wifi_events   = NULL;
 
-// --- Private Variables ---
-static esp_netif_t *esp_netif = NULL;
-static EventGroupHandle_t wifi_events = NULL;
-static bool attempt_reconnect = true;
-static int disconnection_err_count = 0;
+// WiFi Status for outside
+#define WIFI_STATUS_CONNECTING          BIT0
+#define WIFI_STATUS_CONNECTED           BIT1
+#define WIFI_STATUS_DISCONNECTED        BIT2
+#define WIFI_STATUS_RECONNECTING        BIT3
+EventGroupHandle_t wifi_status          = NULL;
 
-// --- Forward Declarations ---
+static int reconnection_count           = 0;
+
+// Reconnection
+#define RECONNECT_DELAY_MS              5000
+SemaphoreHandle_t reconnectSemaphore;
+
+// Private Variables 
+static esp_netif_t *esp_netif           = NULL;
+static bool attempt_reconnect           = true;
+
+// Forward Declarations 
 static void event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
+static void wifi_attempt_reconnect(void *params);
 char *get_wifi_disconnection_string(wifi_err_reason_t reason); 
 
-// --- Event Handler ---
+// Event Handler 
 static void event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
     switch (event_id)
@@ -47,7 +55,7 @@ static void event_handler(void *arg, esp_event_base_t event_base, int32_t event_
         case WIFI_EVENT_STA_CONNECTED:
         {
             ESP_LOGI(WIFI_TAG, "WIFI_EVENT_STA_CONNECTED");
-            disconnection_err_count = 0;
+            reconnection_count  = 0;
             break;
         }
     
@@ -60,41 +68,8 @@ static void event_handler(void *arg, esp_event_base_t event_base, int32_t event_
 
             if (attempt_reconnect)
             {
-                bool should_retry =
-                    (event->reason == WIFI_REASON_NO_AP_FOUND)     ||
-                    (event->reason == WIFI_REASON_ASSOC_LEAVE)     ||
-                    (event->reason == WIFI_REASON_AUTH_EXPIRE)     ||
-                    (event->reason == WIFI_REASON_AUTH_FAIL)       ||
-                    (event->reason == WIFI_REASON_CONNECTION_FAIL) ||
-                    (event->reason == WIFI_REASON_BEACON_TIMEOUT);
-
-                if (should_retry)
-                {
-                    if (disconnection_err_count < MAX_DISCONNECTION_RETRY)
-                    {
-                        ESP_LOGI(WIFI_TAG, "Attempting to reconnect... (%d/%d)",
-                                 disconnection_err_count + 1, MAX_DISCONNECTION_RETRY);
-
-                        vTaskDelay(pdMS_TO_TICKS(RECONNECT_DELAY_MS));
-                        ESP_ERROR_CHECK(esp_wifi_connect());
-                        disconnection_err_count++;
-                    }
-                    else
-                    {
-                        ESP_LOGE(WIFI_TAG, "Retry limit reached. Giving up.");
-                        xEventGroupSetBits(wifi_events, BIT_DISCONNECTED);
-                    }
-                }
-                else
-                {
-                    ESP_LOGE(WIFI_TAG, "Disconnection reason not eligible for retry (%s). Giving up.", get_wifi_disconnection_string(event->reason));
-                    xEventGroupSetBits(wifi_events, BIT_DISCONNECTED);
-                }
-            }
-            else
-            {
-                ESP_LOGI(WIFI_TAG, "Reconnection attempts disabled.");
-                xEventGroupSetBits(wifi_events, BIT_DISCONNECTED);
+                ESP_LOGI(WIFI_TAG, "Attempting to reconnect... (%d)", ++reconnection_count);
+                xSemaphoreGive(reconnectSemaphore);
             }
             break;
         }
@@ -111,8 +86,7 @@ static void event_handler(void *arg, esp_event_base_t event_base, int32_t event_
     }
 }
 
-// --- Public Functions ---
-
+// Public Functions
 void wifi_connect_init(void)
 {
     ESP_ERROR_CHECK(esp_netif_init());
@@ -126,13 +100,18 @@ void wifi_connect_init(void)
 
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
 
+    // Disable cluttering warning messages (IDF v5)
     esp_log_level_set("wifi", ESP_LOG_ERROR);
 }
 
 esp_err_t wifi_connect_sta(char *ssid, char *pass, int timeout)
 {
     attempt_reconnect = true;
+    
     wifi_events = xEventGroupCreate();
+    wifi_status = xEventGroupCreate();
+    reconnectSemaphore = xSemaphoreCreateBinary();
+    xTaskCreate(&wifi_attempt_reconnect, "wifi_attempt_reconnect", 4096, NULL, 5, NULL);
 
     esp_netif = esp_netif_create_default_wifi_sta();
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
@@ -140,7 +119,6 @@ esp_err_t wifi_connect_sta(char *ssid, char *pass, int timeout)
     wifi_config_t wifi_config = { 0 };
     strncpy((char *)wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid) - 1);
     strncpy((char *)wifi_config.sta.password, pass, sizeof(wifi_config.sta.password) - 1);
-    wifi_config.sta.failure_retry_cnt = MAX_DISCONNECTION_RETRY;
 
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
@@ -197,5 +175,16 @@ void wifi_disconnect(void)
     {
         esp_netif_destroy(esp_netif);
         esp_netif = NULL;
+    }
+}
+
+// Private Functions
+static void wifi_attempt_reconnect(void *params)
+{
+    while (true)
+    {
+        xSemaphoreTake(reconnectSemaphore, portMAX_DELAY);
+        vTaskDelay(pdMS_TO_TICKS(RECONNECT_DELAY_MS));
+        ESP_ERROR_CHECK(esp_wifi_connect());
     }
 }
