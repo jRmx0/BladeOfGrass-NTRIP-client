@@ -83,7 +83,7 @@ esp_err_t wifi_led_init(int gpio_pin)
         2048,
         NULL,
         3,
-        &wifi_state_handler
+        &wifi_monitor_led_handler
     );
 
     return ESP_OK;

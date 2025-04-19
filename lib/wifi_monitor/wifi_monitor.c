@@ -10,7 +10,8 @@
 #define MONITOR_TAG "WIFI_MONITOR"
 
 static wifi_state_t current_wifi_state = WIFI_MONITOR_DISCONNECTED;
-TaskHandle_t wifi_state_handler = NULL;
+TaskHandle_t wifi_monitor_led_handler = NULL;
+TaskHandle_t wifi_monitor_um980_handler = NULL;
 
 // Based on wifi state other modules are called or blocked (managing wifi disconections)
 static void wifi_monitor_task(void *pvParameters)
@@ -46,7 +47,8 @@ static void wifi_monitor_task(void *pvParameters)
                     current_wifi_state = WIFI_MONITOR_RECONNECTING;
                     break;
                 }
-                xTaskNotify(wifi_state_handler, current_wifi_state, eSetValueWithOverwrite);
+                xTaskNotify(wifi_monitor_um980_handler, current_wifi_state, eSetValueWithOverwrite);
+                xTaskNotify(wifi_monitor_led_handler, current_wifi_state, eSetValueWithOverwrite);
             }
         }
         else

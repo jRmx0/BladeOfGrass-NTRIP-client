@@ -12,7 +12,8 @@ typedef enum{
     WIFI_MONITOR_DISCONNECTED
 } wifi_state_t; 
 
-extern TaskHandle_t wifi_state_handler;
+extern TaskHandle_t wifi_monitor_led_handler;
+extern TaskHandle_t wifi_monitor_um980_handler;
 
 void wifi_monitor_init(void);
 
