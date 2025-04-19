@@ -1,7 +1,7 @@
 #include "config_board.h"
 
-#include "wifi_led.h"
 #include "wifi_connect.h"
+#include "wifi_monitor.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
@@ -9,36 +9,48 @@
 
 #define MONITOR_TAG "WIFI_MONITOR"
 
-static TaskHandle_t wifi_monitor_task_handle = NULL;
+static wifi_state_t current_wifi_state = WIFI_MONITOR_DISCONNECTED;
+TaskHandle_t wifi_state_handler = NULL;
 
+// Based on wifi state other modules are called or blocked (managing wifi disconections)
 static void wifi_monitor_task(void *pvParameters)
 {
-    while (1) {
-        if (wifi_status != NULL) {
+    while (1)
+    {
+        if (wifi_status != NULL)
+        {
             EventBits_t bits = xEventGroupWaitBits(
                 wifi_status,
-                WIFI_STATUS_CONNECTING | 
-                WIFI_STATUS_CONNECTED | 
-                WIFI_STATUS_DISCONNECTED | 
+                WIFI_STATUS_CONNECTING |
+                WIFI_STATUS_CONNECTED |
+                WIFI_STATUS_DISCONNECTED |
                 WIFI_STATUS_RECONNECTING,
-                pdTRUE,         
-                pdFALSE,        
-                portMAX_DELAY 
-            );
+                pdTRUE,
+                pdFALSE,
+                portMAX_DELAY);
 
-            if (bits & WIFI_STATUS_CONNECTING) {
-                wifi_led_set_pattern(LED_PATTERN_SLOW_BLINK);
+            if (bits & (WIFI_STATUS_CONNECTING | WIFI_STATUS_CONNECTED | WIFI_STATUS_DISCONNECTED | WIFI_STATUS_RECONNECTING))
+            {
+                switch (bits)
+                {
+                case WIFI_STATUS_CONNECTING:
+                    current_wifi_state = WIFI_MONITOR_CONNECTING;
+                    break;
+                case WIFI_STATUS_CONNECTED:
+                    current_wifi_state = WIFI_MONITOR_CONNECTED;
+                    break;
+                case WIFI_STATUS_DISCONNECTED:
+                    current_wifi_state = WIFI_MONITOR_DISCONNECTED;
+                    break;
+                case WIFI_STATUS_RECONNECTING:
+                    current_wifi_state = WIFI_MONITOR_RECONNECTING;
+                    break;
+                }
+                xTaskNotify(wifi_state_handler, current_wifi_state, eSetValueWithOverwrite);
             }
-            else if (bits & WIFI_STATUS_CONNECTED) {
-                wifi_led_set_pattern(LED_PATTERN_ON);
-            }
-            else if (bits & WIFI_STATUS_DISCONNECTED) {
-                wifi_led_set_pattern(LED_PATTERN_OFF);
-            }
-            else if (bits & WIFI_STATUS_RECONNECTING) {
-                wifi_led_set_pattern(LED_PATTERN_FAST_BLINK);
-            }
-        } else {
+        }
+        else
+        {
             vTaskDelay(pdMS_TO_TICKS(500));
         }
     }
@@ -46,14 +58,16 @@ static void wifi_monitor_task(void *pvParameters)
 
 void wifi_monitor_init(void)
 {
-    wifi_led_init(IO_WIFI_LED);
-    
     xTaskCreate(
-        wifi_monitor_task,      
-        "wifi_monitor_task",   
-        4096,                   
-        NULL,                   
-        2,                      
-        &wifi_monitor_task_handle 
-    );
+        wifi_monitor_task,
+        "wifi_monitor_task",
+        4096,
+        NULL,
+        5,
+        NULL);
+}
+
+bool wifi_is_connected(void)
+{
+    return (current_wifi_state == WIFI_MONITOR_CONNECTED);
 }

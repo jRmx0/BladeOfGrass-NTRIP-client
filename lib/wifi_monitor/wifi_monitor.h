@@ -1,6 +1,21 @@
 #ifndef WIFI_MONITOR_H
 #define WIFI_MONITOR_H
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include <stdio.h>
+
+typedef enum{
+    WIFI_MONITOR_CONNECTING,
+    WIFI_MONITOR_CONNECTED,
+    WIFI_MONITOR_RECONNECTING,
+    WIFI_MONITOR_DISCONNECTED
+} wifi_state_t; 
+
+extern TaskHandle_t wifi_state_handler;
+
 void wifi_monitor_init(void);
+
+bool wifi_is_connected(void);
 
 #endif // WIFI_MONITOR_H

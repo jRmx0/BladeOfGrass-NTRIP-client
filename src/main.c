@@ -3,6 +3,7 @@
 
 #include "wifi_connect.h"
 #include "wifi_monitor.h"
+#include "wifi_led.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -55,6 +56,7 @@ void app_main(void)
 
     wifi_connect_init();
     wifi_monitor_init();
+    wifi_led_init(IO_WIFI_LED);
 
     ESP_ERROR_CHECK(wifi_connect_sta(WIFI_SSID, WIFI_PASS, portMAX_DELAY));
 

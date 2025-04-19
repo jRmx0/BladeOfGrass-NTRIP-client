@@ -1,14 +1,27 @@
-#include "wifi_led.h"
+#include "wifi_monitor.h"
+
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #define TAG "WIFI_LED"
+
+typedef enum {
+    LED_PATTERN_OFF,
+    LED_PATTERN_ON,
+    LED_PATTERN_SLOW_BLINK,  // 1Hz
+    LED_PATTERN_FAST_BLINK,  // 4Hz
+} led_pattern_t;
 
 static int led_gpio = -1;
 static led_pattern_t current_pattern = LED_PATTERN_OFF;
 static esp_timer_handle_t blink_timer = NULL;
 static bool led_state = false;
+
+static void wifi_led_set_pattern(led_pattern_t pattern);
+static void wifi_led_set_pattern_task(void *pvParameters);
 
 // Timer callback for LED blinking
 static void led_blink_timer_callback(void *arg)
@@ -65,6 +78,14 @@ esp_err_t wifi_led_init(int gpio_pin)
     wifi_led_set_pattern(LED_PATTERN_OFF);
     ESP_LOGI(TAG, "Wifi LED initialized on GPIO %d", led_gpio);
     
+    xTaskCreate(&wifi_led_set_pattern_task, 
+        "wifi_led_set_pattern_task", 
+        2048,
+        NULL,
+        3,
+        &wifi_state_handler
+    );
+
     return ESP_OK;
 }
 
@@ -100,3 +121,28 @@ void wifi_led_set_pattern(led_pattern_t pattern)
             break;
     }
 }
+
+static void wifi_led_set_pattern_task(void *pvParameters)
+{
+    uint32_t state;
+    while (1)
+    {
+        xTaskNotifyWait(0, 0, &state, portMAX_DELAY);
+        
+        switch (state)
+        {
+            case WIFI_MONITOR_CONNECTING:
+                wifi_led_set_pattern(LED_PATTERN_SLOW_BLINK);
+                break;
+            case WIFI_MONITOR_CONNECTED:
+                wifi_led_set_pattern(LED_PATTERN_ON);
+                break;
+            case WIFI_MONITOR_DISCONNECTED:
+                wifi_led_set_pattern(LED_PATTERN_OFF);
+                break;
+            case WIFI_MONITOR_RECONNECTING:
+                wifi_led_set_pattern(LED_PATTERN_FAST_BLINK);
+                break;
+        }
+    }
+}    
