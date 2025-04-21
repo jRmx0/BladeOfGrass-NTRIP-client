@@ -4,7 +4,7 @@
 #include "wifi_connect.h"
 #include "wifi_monitor.h"
 #include "wifi_led.h"
-#include "um980.h"
+#include "uart_um980.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -59,7 +59,7 @@ void app_main(void)
     
     wifi_monitor_init();
     wifi_led_init(IO_WIFI_LED);
-    um980_init();
+    uart_um980_init();
 
     ESP_ERROR_CHECK(wifi_connect_sta(WIFI_SSID, WIFI_PASS, portMAX_DELAY));
 

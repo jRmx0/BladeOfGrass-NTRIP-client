@@ -4,6 +4,7 @@
         "freertos.h": "c",
         "event_groups.h": "c",
         "task.h": "c",
-        "wifi_monitor.h": "c"
+        "wifi_monitor.h": "c",
+        "nmea.h": "c"
     }
 }
