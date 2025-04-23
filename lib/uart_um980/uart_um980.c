@@ -3,6 +3,7 @@
 #include "config_board.h"
 
 #include "nmea.h"
+#include "ntrip_client.h"
 
 #include <stdbool.h>
 #include <string.h>
@@ -20,11 +21,17 @@
 #define TX_BUFF_SIZE 1024
 #define MESSAGE_INTERVAL_MS 10000
 
-QueueHandle_t uart_um980_gga_queue;
+static QueueHandle_t uart_um980_gga_queue;
 #define UART_UM980_GGA_QUEUE_SIZE 1
+
+QueueHandle_t uart_um980_gga_to_ntrip_caster_queue;
+#define UART_UM980_GGA_TO_NTRIP_CASTER_QUEUE_SIZE 1
 
 static void uart_um980_request_gga_task(void *pvParameters);
 static void uart_um980_recieve_gga_task(void *pvParameters);
+static void uart_um980_send_rtcm_task(void *pvParameters);
+
+
 
 void uart_um980_init(void)
 {
@@ -51,23 +58,29 @@ void uart_um980_init(void)
                                  UART_PIN_NO_CHANGE, 
                                  UART_PIN_NO_CHANGE));
 
-    xTaskCreate(
-        uart_um980_request_gga_task,
-        "um980_request_gga_task",
-        4096,
-        NULL,
-        5,
-        &wifi_monitor_um980_handler
-    );
+    xTaskCreate(uart_um980_request_gga_task,
+                "um980_request_gga_task",
+                4096,
+                NULL,
+                5,
+                &wifi_monitor_um980_handler);
 
-    xTaskCreate(
-        uart_um980_recieve_gga_task,
-        "uart_um980_recieve_gga_task",
-        2048,
-        NULL,
-        6,
-        NULL
-    );
+    xTaskCreate(uart_um980_recieve_gga_task,
+                "uart_um980_recieve_gga_task",
+                2048,
+                NULL,
+                6,
+                NULL);
+
+    xTaskCreate(uart_um980_send_rtcm_task, 
+                "uart_um980_send_rtcm_task",
+                2048,
+                NULL,
+                5,
+                NULL);
+
+    uart_um980_gga_to_ntrip_caster_queue = xQueueCreate(UART_UM980_GGA_TO_NTRIP_CASTER_QUEUE_SIZE,
+                                                        RX_BUFF_SIZE);
 }
 
 static void uart_um980_request_gga_task(void *pvParameters)
@@ -114,11 +127,13 @@ static void uart_um980_recieve_gga_task(void *pvParameters)
                 case UART_DATA:
                     ESP_LOGI(TAG, "UART_DATA");
                     uart_read_bytes(UART_UM980, gga_recieved, uart_event.size, pdMS_TO_TICKS(1000));
-                    printf("%d bytes received: %.*s\n", uart_event.size, uart_event.size - 2, gga_recieved);
-                    if(nmea_is_gngga_message((const char*) gga_recieved))
+                    //printf("%d bytes received: %.*s\n", uart_event.size, uart_event.size - 2, gga_recieved);
+                    if(nmea_is_gga_location_report((const char*) gga_recieved))
                     {
-                        printf("Has location data: %d\n", nmea_gga_has_location_data((const char*) gga_recieved));
-                        printf("Fix quality: %d\n", nmea_get_gga_fix_quality((const char*) gga_recieved));
+                        xQueueOverwrite(uart_um980_gga_to_ntrip_caster_queue,
+                                        gga_recieved);
+                        // printf("Has location data: %d\n", nmea_gga_has_location_data((const char*) gga_recieved));
+                        // printf("Fix quality: %d\n", nmea_get_gga_fix_quality((const char*) gga_recieved));
                     }
                     break;
 
@@ -139,5 +154,18 @@ static void uart_um980_recieve_gga_task(void *pvParameters)
             }
         } 
     }
+
+    free(gga_recieved);
 }
 
+static void uart_um980_send_rtcm_task(void *pvParameters)
+{
+    rtcm_data_t rtcm_item;
+    rtcm_queue = xQueueCreate(20, sizeof(void *));
+
+    while(1)
+    {
+        xQueueReceive(rtcm_queue, &rtcm_item, portMAX_DELAY);
+        uart_write_bytes(UART_UM980, rtcm_item.data, rtcm_item.length);
+    }
+}

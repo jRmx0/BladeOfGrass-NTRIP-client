@@ -30,28 +30,17 @@
 #define GPS_QUALITY_SIMULATOR    8 
 
 /**
- * @brief Check if a message is a valid GNGGA message
+ * @brief Check if a message is a GNGGA message that contains valid location data
+ * 
+ * This function combines checks for:
+ * 1. Whether the message is a GNGGA message
+ * 2. Whether the message contains valid location data (latitude, longitude, and quality)
  * 
  * @param message The NMEA message to check
- * @return true if the message starts with $GNGGA
+ * @return true if the message is a GNGGA with valid location data
  * @return false otherwise
  */
-bool nmea_is_gngga_message(const char *message);
-
-/**
- * @brief Check if a GGA message has valid location data
- * 
- * Message is considered valid if:
- * 1. It has latitude and longitude data
- * 2. Quality indicator is between 1 and 6 inclusive
- *    (GPS_QUALITY_SPS, GPS_QUALITY_DIFFERENTIAL, GPS_QUALITY_PPS, 
- *     GPS_QUALITY_RTK_INT, GPS_QUALITY_RTK_FLOAT, GPS_QUALITY_DEAD_RECK)
- * 
- * @param gga_message The GGA NMEA message to check
- * @return true if the message contains valid location data
- * @return false if the message is NULL or doesn't contain valid location data
- */
-bool nmea_gga_has_location_data(const char *gga_message);
+bool nmea_is_gga_location_report(const char *message);
 
 /**
  * @brief Get the GPS fix quality from a GGA message

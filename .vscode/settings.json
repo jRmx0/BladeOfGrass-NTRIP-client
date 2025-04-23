@@ -5,6 +5,7 @@
         "event_groups.h": "c",
         "task.h": "c",
         "wifi_monitor.h": "c",
-        "nmea.h": "c"
+        "nmea.h": "c",
+        "queue.h": "c"
     }
 }

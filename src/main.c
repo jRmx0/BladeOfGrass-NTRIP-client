@@ -5,6 +5,7 @@
 #include "wifi_monitor.h"
 #include "wifi_led.h"
 #include "uart_um980.h"
+#include "ntrip_client.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -62,6 +63,8 @@ void app_main(void)
     uart_um980_init();
 
     ESP_ERROR_CHECK(wifi_connect_sta(WIFI_SSID, WIFI_PASS, portMAX_DELAY));
+
+    ntrip_client_init();
 
     // // Configure UART parameters
     // uart_config_t uart_config = {
