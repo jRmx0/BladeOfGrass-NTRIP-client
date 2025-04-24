@@ -69,7 +69,7 @@ void wifi_monitor_init(void)
         NULL);
 }
 
-bool wifi_is_connected(void)
+bool connected_to_wifi(void)
 {
     return (current_wifi_state == WIFI_MONITOR_CONNECTED);
 }

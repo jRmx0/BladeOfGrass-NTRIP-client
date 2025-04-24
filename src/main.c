@@ -23,7 +23,7 @@
 #include "esp_event.h"
 #include "esp_netif.h"
 
-//static const char *TAG = "MAIN";
+#define TAG "MAIN"
 
 void app_main(void)
 {
@@ -41,6 +41,10 @@ void app_main(void)
     uart_um980_init();
 
     ESP_ERROR_CHECK(wifi_connect_sta(WIFI_SSID, WIFI_PASS, portMAX_DELAY));
+    
+    ntrip_client_init(NTRIP_HOST, NTRIP_PORT, NTRIP_MOUNTPOINT, 
+                      NTRIP_USER, NTRIP_PASSWORD, 
+                      um980_gga_queue, um980_rtcm_queue);
 
-    //ntrip_client_init();
+    ntrip_client_start();
 }

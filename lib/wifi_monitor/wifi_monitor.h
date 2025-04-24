@@ -17,6 +17,6 @@ extern TaskHandle_t wifi_monitor_um980_handler;
 
 void wifi_monitor_init(void);
 
-bool wifi_is_connected(void);
+bool connected_to_wifi(void);
 
 #endif // WIFI_MONITOR_H

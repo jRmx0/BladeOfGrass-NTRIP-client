@@ -19,8 +19,8 @@ typedef struct
     size_t size;
 } rtcm_corrections_t;
 
-extern QueueHandle_t um980_gga_to_ntrip_caster_queue;
-extern QueueHandle_t um980_rtcm_from_ntrip_caster_queue;
+extern QueueHandle_t um980_gga_queue;
+extern QueueHandle_t um980_rtcm_queue;
 
 void uart_um980_init(void);
 
