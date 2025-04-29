@@ -3,6 +3,11 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+.vscode
+
+CMakeLists.txt
+
+sdkconfig.esp32dev
 
 # Ignore confidential info
 config_credentials.h
